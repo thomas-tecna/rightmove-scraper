@@ -26,12 +26,16 @@ def scrape_rightmove():
             # Load the page
             page.goto(url, timeout=60000)
             page.wait_for_load_state("networkidle", timeout=20000)
-            time.sleep(2)
 
+            # Wait for listings to be present in DOM (not just attached)
             try:
-                page.wait_for_selector('[data-testid^="propertyCard-"]', timeout=20000, state="attached")
+                page.wait_for_function("""
+                  () => {
+                    return document.querySelectorAll('[data-testid^="propertyCard-"]').length >= 1;
+                  }
+                """, timeout=20000)
             except:
-                print("⚠️ Property cards not visibly rendered — continuing anyway")
+                print("⚠️ Listings not fully loaded after wait. Proceeding anyway.")
 
             html = page.content()
             browser.close()
@@ -41,7 +45,7 @@ def scrape_rightmove():
         # Try primary selector
         listings = soup.select('[data-testid^="propertyCard-"]')
 
-        # Fallback: use legacy/classic structure if primary yields few results
+        # Fallback if very few results
         if not listings or len(listings) < 2:
             print(f"⚠️ Found only {len(listings)} listings with primary selector. Trying fallback selectors.")
             fallback = soup.select('div.propertyCard, div[data-test="propertyCard"], div[data-testid*="propertyCard"]')
