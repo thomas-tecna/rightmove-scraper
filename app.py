@@ -26,10 +26,9 @@ def scrape_rightmove():
             # Load the page
             page.goto(url, timeout=60000)
             page.wait_for_load_state("networkidle", timeout=20000)
-            time.sleep(2)  # Helps slow pages fully render
+            time.sleep(2)
 
             try:
-                # Wait for element to be attached (in DOM), not necessarily visible
                 page.wait_for_selector('[data-testid^="propertyCard-"]', timeout=20000, state="attached")
             except:
                 print("⚠️ Property cards not visibly rendered — continuing anyway")
@@ -38,23 +37,29 @@ def scrape_rightmove():
             browser.close()
 
         soup = BeautifulSoup(html, 'html.parser')
+
+        # Try modern layout first
         listings = soup.select('[data-testid^="propertyCard-"]')
+
+        # Fallback to legacy/classic layout
+        if not listings:
+            print("⚠️ No property cards with data-testid found, trying fallback selectors.")
+            listings = soup.select('div.propertyCard, div[data-test="propertyCard"], div[data-testid*="propertyCard"]')
 
         for listing in listings:
             try:
-                title = listing.select_one('[data-testid="property-title"]').get_text(strip=True) if listing.select_one('[data-testid="property-title"]') else "N/A"
-                address = listing.select_one('[data-testid="property-address"] address').get_text(strip=True) if listing.select_one('[data-testid="property-address"] address') else "N/A"
-                price = listing.select_one('[data-testid="property-price"]').get_text(strip=True) if listing.select_one('[data-testid="property-price"]') else "N/A"
-                description = listing.select_one('[data-testid="property-description"]').get_text(strip=True) if listing.select_one('[data-testid="property-description"]') else "N/A"
+                title = listing.select_one('[data-testid="property-title"]')
+                address = listing.select_one('[data-testid="property-address"] address')
+                price = listing.select_one('[data-testid="property-price"]')
+                description = listing.select_one('[data-testid="property-description"]')
                 link_elem = listing.select_one('a[href*="/properties/"]')
-                link = "https://www.rightmove.co.uk" + link_elem['href'] if link_elem else "N/A"
 
                 listings_data.append({
-                    "Title": title,
-                    "Address": address,
-                    "Price": price,
-                    "Description": description,
-                    "Link": link
+                    "Title": title.get_text(strip=True) if title else "N/A",
+                    "Address": address.get_text(strip=True) if address else "N/A",
+                    "Price": price.get_text(strip=True) if price else "N/A",
+                    "Description": description.get_text(strip=True) if description else "N/A",
+                    "Link": "https://www.rightmove.co.uk" + link_elem['href'] if link_elem else "N/A"
                 })
             except Exception as e:
                 continue
