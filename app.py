@@ -18,24 +18,25 @@ def scrape_rightmove():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
 
-            # Set realistic headers to avoid bot detection
+            # Mimic a real browser
             page.set_extra_http_headers({
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
             })
 
             # Load the page
             page.goto(url, timeout=60000)
-
-            # Wait for network to stabilize and then for property cards to load
             page.wait_for_load_state("networkidle", timeout=20000)
-            time.sleep(3)  # Optional delay for Render Free tier
-            page.wait_for_selector('[data-testid^="propertyCard-"]', timeout=20000)
+            time.sleep(2)  # Helps slow pages fully render
 
-            # Get HTML after JS has rendered
+            try:
+                # Wait for element to be attached (in DOM), not necessarily visible
+                page.wait_for_selector('[data-testid^="propertyCard-"]', timeout=20000, state="attached")
+            except:
+                print("⚠️ Property cards not visibly rendered — continuing anyway")
+
             html = page.content()
             browser.close()
 
-        # Parse listings
         soup = BeautifulSoup(html, 'html.parser')
         listings = soup.select('[data-testid^="propertyCard-"]')
 
