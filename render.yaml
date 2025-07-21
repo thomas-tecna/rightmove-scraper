@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: rightmove-scraper
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
