@@ -15,7 +15,8 @@ def scrape_rightmove():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            # ✅ Render-safe launch (no sandbox)
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = browser.new_page()
 
             # Mimic a real browser
@@ -23,31 +24,29 @@ def scrape_rightmove():
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
             })
 
-            # Load the page
+            # Go to the page and wait for load
             page.goto(url, timeout=60000)
             page.wait_for_load_state("networkidle", timeout=20000)
 
-            # Wait for listings to be present in DOM (not just attached)
-            try:
-                page.wait_for_function("""
-                  () => {
-                    return document.querySelectorAll('[data-testid^="propertyCard-"]').length >= 1;
-                  }
-                """, timeout=20000)
-            except:
-                print("⚠️ Listings not fully loaded after wait. Proceeding anyway.")
+            # ✅ Wait until listings are visible in DOM
+            page.wait_for_selector('[data-testid^="propertyCard-"]', state="visible", timeout=30000)
+            time.sleep(1.5)  # Give time for JS to finish rendering
 
             html = page.content()
             browser.close()
 
+        # ✅ Optional: dump raw HTML for debug
+        with open("/tmp/debug.html", "w", encoding="utf-8") as f:
+            f.write(html)
+
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Try primary selector
+        # Primary selector
         listings = soup.select('[data-testid^="propertyCard-"]')
 
-        # Fallback if very few results
+        # Fallback if needed
         if not listings or len(listings) < 2:
-            print(f"⚠️ Found only {len(listings)} listings with primary selector. Trying fallback selectors.")
+            print(f"⚠️ Found only {len(listings)} listings. Trying fallback selectors.")
             fallback = soup.select('div.propertyCard, div[data-test="propertyCard"], div[data-testid*="propertyCard"]')
             if len(fallback) > len(listings):
                 listings = fallback
