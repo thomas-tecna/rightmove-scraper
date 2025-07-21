@@ -38,13 +38,15 @@ def scrape_rightmove():
 
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Try modern layout first
+        # Try primary selector
         listings = soup.select('[data-testid^="propertyCard-"]')
 
-        # Fallback to legacy/classic layout
-        if not listings:
-            print("⚠️ No property cards with data-testid found, trying fallback selectors.")
-            listings = soup.select('div.propertyCard, div[data-test="propertyCard"], div[data-testid*="propertyCard"]')
+        # Fallback: use legacy/classic structure if primary yields few results
+        if not listings or len(listings) < 2:
+            print(f"⚠️ Found only {len(listings)} listings with primary selector. Trying fallback selectors.")
+            fallback = soup.select('div.propertyCard, div[data-test="propertyCard"], div[data-testid*="propertyCard"]')
+            if len(fallback) > len(listings):
+                listings = fallback
 
         for listing in listings:
             try:
